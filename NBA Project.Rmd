@@ -1,0 +1,536 @@
+---
+title: "Final Project - NBA 2019/2020 Season Analsys"
+author: "Assaf Shilon"
+date: "24-06-2021"
+output: html_document
+---
+<img src=https://upload.wikimedia.org/wikipedia/he/thumb/8/8a/TelAvivUniLogo.svg/1200px-TelAvivUniLogo.svg.png>  
+
+# <a name = "Table_of_Contents"> </a> Table of Contents: 
+1. [Introduction](#Intro)
+2. [Loading Packages](#LLAD)
+2. [Loading Data](#Data)
+3. [Explanation](#E)
+4. [Data Engineering](#DE) 
+5. [Visualization](#V)  
+    a.[Plot 1](#P1)  
+    b.[Plot 2](#P2)  
+    c.[Plot 3](#P3)  
+    d.[Plot 4](#P4)  
+6. [Models](#MOD)  
+    a.[Test 1](#T1)     
+    b.[Test 2](#T2)   
+    c.[Test 3](#T3)   
+    d.[Test 4](#T4)   
+    e.[Test 5](#T5)   
+    f.[Test 6](#T6)
+7. [Summary & Conclusions](#SC)
+    
+# <a name = "Intro"> </a> Introduction    
+
+In the following project, we analyzed the personal statistics database of players in the **NBA 2019/2020** season. Due to basketball being a personal sport, every player has its own unique individual statistics. We wanted to find patterns and correlations between and inside basketball-related personal statistics, physical statistics (Age and more) and basketball-related personal properties (Salary, position and etc). Our analysis will help people with basic knowledge of basketball to understand more about the game and its current trends.  
+
+Furthermore, we wanted to dive into the numbers, and check what kind of statistical distributions in the database are distributing in a common way like we learn during the course and understand the reason for that.  
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+# <a name = "LLAD"> </a> Loading Packages
+```{r message=FALSE}
+  library(tidyverse)
+  library(ggplot2)
+  library(tibble)
+  library(RColorBrewer)
+```
+# <a name = "Data"> </a> Loading Data
+```{r warning=FALSE, message=FALSE}
+nba_stats <- readr::read_csv('D:/Dvir/Digital Science/Year 2/semester B/Data Analsys/Final Project/Final Project/nba-stats-salary-rating.csv') %>% suppressWarnings()
+nba_twotwo <- readr::read_csv('D:/Dvir/Digital Science/Year 2/semester B/Data Analsys/Final Project/Final Project/nbaratingtwotwo.csv')
+
+```
+[Back to Table of Contents](#Table_of_Contents)  
+
+# <a name = "E"> </a> Explanation  
+To understand the data in a better way, we wanted you to know what each feature means:  
+
+#### **POS** = Position  
+#### **Tm** = Team  
+#### **G** = Games  
+#### **GS** = Game Started  
+#### **MP** = Minutes Played  
+#### **FG** = Field Goals  
+#### **FGA** = Field Goals Attempted  
+#### **FG%** = Field Goals Precentage  
+#### **3P** = Three Points  
+#### **3PA** = Three Points Attempted  
+#### **3P%** = Three Points Precentage  
+#### **2P** = Two Points  
+#### **2PA** = Two Points Attempted  
+#### **2P%** = Two Points Precentage  
+#### **EFG** = Efficient Field Goals  
+#### **FT** = Free Throw   
+#### **FTA** = Free Throw Attempted  
+#### **FT%** = Free Throw Precentage  
+#### **ORB** = Ofensive Rebound Percentage  
+#### **DRB** = Dribble  
+#### **TRB** = Total Rebound Percentage  
+#### **AST** = Assist  
+#### **STL** = Steals  
+#### **BLK** = Blocks  
+#### **TOV** = Turn Over Ratio  
+#### **PF** = Personal Fouls  
+#### **PTS** = Points  
+[Back to Table of Contents](#Table_of_Contents)  
+
+# <a name = "DE"> </a> Data Engineering  
+There were some problems in the data, in order to deal with it:  
+First, we wanted to remove some symbols, numbers, and signs.  
+Then we found out that there are several basketball players who appeared several times in the data because they swapped  teams during the same season.  
+We made a modification to the data accordingly and due to that we had an issue with missing values.  
+Due to the reason that certain players did not take any shot from a certain range ("two points", "three points", "free throw"), their percentage is "0" divided by "0" and and therefore the value is "NA".  
+Because of that we replaced "NA" with "0".  
+We also added additional data to our own database in order to find the updated rating for the 2020 season. The rating feature represents the player's quality score between 1-100 that was set by the 2k company, which manufactures the "NBA" official video game.  
+In our data, the rating feature was the rating that was being set at the beginning of the season, while the other data in the database was updated at the end of the season. Due to those reasons, we added a feature of a players rating at the end of the season from a different database.  
+```{r message=TRUE, warning=TRUE, results='hide'}
+nba_stats$salaries_update <- as.numeric(gsub("[\\$,]", "", nba_stats$Salaries))
+nba_stats <- subset(nba_stats, select = -c(Salaries)) 
+
+nba_to_delete <- nba_stats
+nba_part_2 <- nba_to_delete %>% group_by(Player) %>% filter(n() == 1)
+nba_part_1 <- nba_to_delete %>% group_by(Player) %>% filter(n() > 1 & Tm == "TOT")
+
+#we've used "rbind" to merge the data.
+nba_mod <- rbind(nba_part_1, nba_part_2)
+
+#we've used left_join, to add the Rating of 2021 from the other data set to our data.
+nba_mod <- left_join(nba_mod,nba_twotwo, by = c("Player" = "Player_Name")) 
+
+colnames(nba_mod)[which(names(nba_mod) == "3P%")] <- "Three_points_pct"
+colnames(nba_mod)[which(names(nba_mod) == "3P")] <- "Three_points"
+colnames(nba_mod)[which(names(nba_mod) == "3PA")] <- "Three_points_Attempted"
+colnames(nba_mod)[which(names(nba_mod) == "2P%")] <- "Two_points_pct"
+colnames(nba_mod)[which(names(nba_mod) == "eFG%")] <- "eFG_pct"
+colnames(nba_mod)[which(names(nba_mod) == "FG%")] <- "Field_Goal_pct"
+colnames(nba_mod)[which(names(nba_mod) == "FT%")] <- "Free_Throw_pct"
+colnames(nba_mod)[which(names(nba_mod) == "Rating_twone")] <- "Ratings_2021"
+
+# find in which columns there are NAN values. 
+names(which(colSums(is.na(nba_mod)) > 0)) 
+
+# due to the reason that some players 
+# didn't take any shot from certain range (2pt,3pt,ft), 
+# their pct is 0 divided by 0 and by that is NA. 
+# we replaced NA with 0 and will consider it moving forward.
+nba_mod[is.na(nba_mod)] = 0
+
+#creating a column that represent the assist to "tov" ratio.
+nba_mod$AST_TO_TOV_RATIO <- nba_mod$AST / nba_mod$TOV
+
+```
+[Back to Table of Contents](#Table_of_Contents)  
+
+# <a name = "V"> </a> Visualization  
+
+#### In order to understand the data features, their meaning and possible relations between them, we had visualized some of those relations.  
+
+#### <a name = "P1"> </a> Plot 1
+The following columns represent the Salary of each player, in each group in descending order. we took the **TOP-10** earning players of the NBA.  
+Each number presents the Salary in terms of millions of dollars.  
+
+```{r}
+nba_mod %>% 
+  arrange(desc(salaries_update / 10**6)) %>% 
+  head(10) %>%
+  ggplot(aes(x = reorder(Player, -salaries_update), y = salaries_update/10**6, fill = Tm)) + 
+  geom_col() + theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  guides(fill = guide_legend("Team Names")) +
+  labs(x = "Player Name", y   = "Salaries")+
+  geom_text(aes(label = round(salaries_update/10**6), vjust = -0.2)) + ggtitle("Ten Most Earning Players") +
+  theme(plot.title = element_text(hjust = 0.5))
+```  
+  
+  
+According to the data, we can see that **Stephen Curry** from the "Golden State Warrior" is the highest earner in the NBA with **40 million-$** per season.  
+Followed by him are variety of players from different teams, with either the same salary as the previous player or lower.  
+[Back to Table of Contents](#Table_of_Contents)
+
+#### <a name = "P2"> </a> Plot 2
+
+To see what the age distribution is in the NBA, we created a graph that shows us the age range, and the amount of players that are within each range individually.  
+
+```{r}
+nba_mod %>% 
+  group_by(Age) %>%
+  count(Age) %>%
+  arrange(desc(n), .by_group = FALSE) %>% 
+  mutate(Age = fct_inorder(as.character(Age))) %>%
+  head(16) %>% 
+  ggplot(aes(x = Age, y = n, fill = Age)) + 
+  geom_col() + guides(fill = guide_legend("Age")) + 
+  coord_flip() + geom_text(aes(label = n), hjust = -0.1) +
+  labs(x = "Age", y = "Number Of Players") + ggtitle("Age Distribution") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```   
+
+We can see that the common age is **"26"**, we can also see that the ages around 26 are more common than the rest.  
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+#### <a name = "P3"> </a> Plot 3
+The following scatter plot represents the relationships between a players end of the season rating, his salary, and his Points scored per game.  
+Points scored is one of the primary (but not for all cases) representing statistics for measuring a player's quality.  
+In the plot, we can see if those who score the most points are also well-earned and rated.  
+
+```{r}
+points_counter <- c(0,5,10,15,20,25,Inf)
+Point_groups <- c("0-5PT",
+                  "5-10PT",
+                  "10-15PT",
+                  "15-20PT",
+                  "20-25PT",
+                  "25PT+")
+
+Points <- cut(x=nba_mod$PTS, 
+              breaks = points_counter,
+              labels = Point_groups, 
+              include.lowest = TRUE)
+
+nba_mod$Points_Range <- Points
+nba_mod %>% 
+  ggplot(aes(Ratings_2021, round(salaries_update/10**6) , color = Points_Range)) +
+  geom_jitter() + 
+  labs(x = "Rating", y = "Millions Range") + ggtitle("Distribution of Rating and Millions with points per Game prespective") +   
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```  
+
+We can see that the majority of players who score a low amount of points are low rated and have lower salaries, and while moving up-left (higher salary and higher rating) on the scale we can see players who score high amount of points.  
+[Back to Table of Contents](#Table_of_Contents)  
+ 
+
+#### <a name = "P4"> </a> Plot 4
+Now we want to analyze the whole shooting aspect in 2020-NBA.  
+shooting can be in three forms:  
+"three points", "two points", and "free throws".  
+Three-pointer considered the hardest shot to score due to its range.  
+We wanted the relations between a player who scores a relatively high amount of 3 pointers, his field goal percentage (percentage of made shots divided by his shots taken), and his free throw percentage (same as field-goal percentage only with free throw).  
+
+```{r}
+modif_nba <- nba_mod %>%
+  ungroup() %>% 
+  select(FGA, G, FTA, Free_Throw_pct, Field_Goal_pct, Three_points) %>% 
+  filter(FGA * G > 250 & FTA * G > 100 & G > 20 )
+
+Field_Goal_Breaks <- c(0.3,0.4,0.45,0.5,0.6,Inf)
+FG_groups <- c("0.3-0.4FG%",
+               "0.4-0.45FG%",
+               "0.45-0.5FG%",
+               "0.5-0.6FG%",
+               "0.6FG%+")
+FG_PCT <- cut(x=modif_nba$Field_Goal_pct,
+              breaks = Field_Goal_Breaks,
+              labels = FG_groups,
+              include.lowest = TRUE)
+modif_nba <- mutate(modif_nba, FG_PCT)
+modif_nba %>%
+  ggplot(aes(Free_Throw_pct, Three_points , color = FG_PCT)) +
+  geom_jitter() +
+  labs(x = "Free Throw Precentage", y = "Three Points") + ggtitle("Distribution of 3 points and Free-Throw % with Field Goals per Game") +
+  theme(plot.title = element_text(hjust = 0.9))
+
+```  
+
+We can see that the majority of the players who score a high amount of 3pt, also have a high free throw percentage and a low field goal percentage.  
+We can see that 3 point shooting and free-throw shooting have a high correlation, and we can also see that there is an opposite trend in the amount of three points made and field goal percentage.  
+The possible explanation is that shooting 3 pointers has a low success rate due to its difficulty and it is affecting negatively the overall field goal percentage.  
+For the same theory, we can see that players who score 0 three-pointers per game have the lowest free throw percentage (due to their overall bad ability of shooting) and has also the highest field goal pct because they are only shooting near the basket- wide open shots.  
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+
+
+# <a name = "MOD"> </a> Models
+
+#### <a name = "T1"> </a> Test 1     
+
+We wanted to see if the age of a player has any impact on his ability on the court.  
+We divided the age category into four groups:  
+**"19-22"**, **"23-27"**, **"28-30"**, **"and 31+"**.  
+For each group, we have checked the **"EFG"** percentage, which considered to be the most accurate scale for shooting efficiency.  
+We removed players who did not have a sufficient number of games or field goals in order to prevent outliers. For a player to be considered in our analysis he will have to play a minimum of 35 games, 150 field goals attempted and 80 Three points attempted.  
+
+```{r message=FALSE, results="hide"}
+nba_mod$Age_Range<-nba_mod$Age
+x <- as.factor(nba_mod$Age_Range)
+levels(x) <- list("19-22" = c("19","20","21","22"),
+                  "23-27" = c("23","24","25","26"),
+                  "28-30" = c("27","28","29","30"),
+                  "31+" = c("31","32","33","34","35","36", "37","38"))
+nba_mod$Age_Range_Fin <- x
+nba_mod %>% 
+  filter(Age_Range_Fin %in% c("19-22","23-27","28-30","31+"))
+
+nba_filtering <- nba_mod %>%
+  filter(FGA * G > 150 & G > 35 & Three_points_Attempted * G > 80) %>%
+  ungroup() %>%
+  select(eFG_pct, Age_Range_Fin)
+
+nba_filtering %>% 
+  ggplot(aes(x = Age_Range_Fin, y = eFG_pct, fill = Age_Range_Fin)) + 
+  geom_boxplot(width=0.5, lwd = 1) + 
+  labs(title = "Distribution of Age on Efficient Field Goals", y = "Efficient Field Goals", x = "Age" ) + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+```  
+
+#### Conclusion:  
+We can see that there is a steady increase of efficient field goals percentage for every age group, and also a significant increase between the age group of "19-22" and "23-27".  
+We can explain that gaining experience is improving a players ability, especially in his first years in the league.  
+
+To verify that, we chose to perform a hypothesis test on the mean age by efficiency.  
+At first, we thought that the average of a player in the age range "19-22" would actually be equal to the other ages, but it could be that the average is smaller than everyone else is.  
+**H0:** "19-22" -> "Efg" = The other groups -> "Efg".  
+**H1:** "19-22" -> "Efg" < The other groups -> "Efg".  
+```{r}
+
+under_twenty_two <- nba_filtering %>% 
+  filter(Age_Range_Fin %in% c("19-22")) %>%
+  ungroup() %>%
+  select(eFG_pct)
+
+
+over_twenty_two <- nba_filtering %>% 
+  filter(Age_Range_Fin %in% c("23-27","28-30","31+")) %>%
+  ungroup() %>%
+  select(eFG_pct)
+
+t.test(under_twenty_two$eFG_pct,over_twenty_two$eFG_pct,alternative = "greater")
+```
+#### Conclusion:  
+**We do reject H0**, and we can assure that the mean of ("19-22") ages group, is smaller then the rest with confidence level of 95%.  
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+#### <a name = "T2"> </a> Test 2  
+We wanted to check whether a players position has an effect for his amount of assists.  
+We will check if the players in position of Point Guard has more assists in average then the rest of the players who are not Point Guard.  
+**H0:** Point Guard AVG Assist = Rest of the Player who are not Point guards.  
+**H1:** Point Guard AVG Assist > Rest of the Player who are not Point guards.  
+```{r}
+nba_mod$AST_TO_TOV_RATIO <- as.numeric(round(nba_mod$AST / nba_mod$TOV, digits = 2))
+
+Point_Guard <- nba_mod %>% 
+  filter(Pos %in% c("PG") & TOV > 0 & G > 20) %>% 
+  ungroup() %>%
+  select(AST_TO_TOV_RATIO)
+
+Non_Point_Guard <- nba_mod %>% 
+  filter(Pos %in% c("SG","C","SF","PF") & TOV > 0 & G > 20) %>% 
+  ungroup() %>%
+  select(AST_TO_TOV_RATIO)
+
+t.test(Point_Guard$AST_TO_TOV_RATIO, Non_Point_Guard$AST_TO_TOV_RATIO, alternative = "greater")
+```
+#### Conclusion:  
+Mean of X = 2.45 > Mean of Y = 1.61, and so **we reject H0**,
+and determine that Point Guard has more assists in average then the rest of the players who are not Point Guard with confidence level of 95%.  
+[Back to Table of Contents](#Table_of_Contents)  
+
+#### <a name = "T3"> </a> Test 3  
+
+We wanted to check if personal fouls are normally distributed. We suspected that the answer to that question might be true, due to the philosophy of NBA coaches that are limiting a players personal fouls. a player will betaken out from the game if he will have 6 fouls, so both the players and coaches are taking any measures to prevent players from being taken out by benching players who have a high amount of fouls, and that made us suspect that PF will distribute normally.  
+
+So first of all, we wanted to check the "PF" position density.
+```{r}
+ggplot(nba_mod, aes(PF)) + geom_density()
+```
+
+now, after it seems that PF indeed normally distributed, we want to make **Chi-squared test for Goodness Of Fit**.  
+**H0:** Personal Fouls is **Normally** Distributed.  
+**H1:** else
+```{r}
+interval_breaks <- c(0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.8, 3.2, 3.9)
+pf <- nba_mod %>%
+  filter(PF > 0) %>%
+  mutate(pfing = cut(PF, breaks = interval_breaks))
+
+#we have two parameters. important for d.f in qchisq().
+mu <- mean(pf$PF)
+sig <- sd(pf$PF)
+
+nba_pf_chi <- pf %>%
+  ungroup() %>%
+  select(pfing) %>%
+  count(pfing, name = "observed") %>% 
+  mutate(ub = interval_breaks[-1]) %>%
+  mutate(lb = interval_breaks[1:9]) %>%  
+  mutate(ep = pnorm(q = ub, mean = mu, sd = sig) - 
+           pnorm(q = lb, mean = mu, sd = sig)) %>% 
+  mutate(ep = ep/sum(ep)) %>%
+  mutate(expected = ep*320) %>%
+  mutate(final_chi = (observed - expected)^2/expected) 
+chi_seq <- sum(nba_pf_chi$final_chi)
+chi_seq
+```
+
+9.65023 -> The result of chi_seq.
+
+Now, we need to check if the critical value is bigger or smaller than what we have found.
+```{r}
+qchisq(p = 1-0.05, df = 10 - 2 - 1)
+```
+#### Conclusion:  
+The critical value came out 14.06714, and starting from it and extreme we reject H0.
+Since 14.06714 > 9.65023 then **we do not reject H0**.
+**And so the distribution is indeed Normal**.
+
+after we found out that PF is indeed normally distributed - we wanted to look at the distribution on plot:
+```{r}
+nba_mod %>% 
+  filter(PF > 0) %>% 
+  arrange(desc(PF)) %>% 
+  ggplot(aes(PF)) +
+  geom_histogram(col = "black", aes(fill= ..count.. ), bins = 10) +
+  labs(x = "PF")
+```  
+
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+#### <a name = "T4"> </a> Test 4  
+
+Due to our previous analysis, we suspected that players in the "front-court" positions ("PF", "C"), are on average worse Free throw shooters than players in the "back-court".  
+So we divided all of the players into Two groups ("front-court" and "back-court") and filtered players who played less than 20 games in order to prevent outliers.  
+In order to get to a definite conclusion, we ran two tests.  
+**1)** The first test was to compare between both "front-court" and "back-court" free-throw percentage.  
+**2)** The second test, we compared the amount of three throws that were made between both groups.  
+We made those Two tests (4 & 5) due to the possibility of one group having a higher free-throw percentage while attempting fewer shots, which in this situation, we wont be able to declare on one group being a better free-throw shooter than the second.  
+In order to be a better free-throw shooter, you need to have a higher free throw percentage and making more or equal number of free throws.  
+**H0:** Front Court Free Throws = Back Court Free Throws  
+**H1:** Front Court Free Throws < Back Court Free Throws
+```{r}
+x <- as.factor(nba_mod$Pos)
+levels(x) <- list(Back_Court = c("PG","SG","SF","SF-SG","SF-PF"),
+                  Front_Court = c("PF","C", "PF-SF", "C-PF"))
+nba_mod <- nba_mod %>% 
+  ungroup() %>% 
+  mutate(Court_Groups = x) 
+
+FT_Back_C <- nba_mod %>% 
+  filter(G > 20) %>%
+  select(Court_Groups,FT) %>%
+  filter(Court_Groups == "Back_Court")
+FT_Back <- FT_Back_C$FT
+
+FT_Front_C <- nba_mod %>% 
+  filter(G > 20) %>%
+  select(Court_Groups,FT) %>%
+  filter(Court_Groups == "Front_Court")
+FT_Front <- FT_Front_C$FT
+
+t.test(FT_Back, FT_Front, alternative = "greater")
+```
+#### Conclusion:  
+We can see that the back court group are shooting more free throw shots per game than the front court.  
+Now we shall proceed to the next test for checking the average free throw percentage of both groups in order to see if we can make a definite conclusion for our test.  
+
+[Back to Table of Contents](#Table_of_Contents)  
+
+
+#### <a name = "T5"> </a> Test 5
+**H0:** mean of free throw pct of front court players = mean of free throw pct of back court players  
+**H1:** mean of free throw pct of front court players < mean of free throw pct of back court players  
+
+```{r}
+nba_mod %>%
+  select(Court_Groups,FTA,FT,G) %>%
+  filter(G>20) %>%
+  arrange(desc(Court_Groups)) 
+
+Back_C <- nba_mod %>% 
+  filter(G > 20) %>%
+  select(Court_Groups,Free_Throw_pct) %>%
+  filter(Court_Groups == "Back_Court")
+Back_court <- Back_C$Free_Throw_pct
+
+
+Front_C <- nba_mod %>% 
+  filter(G > 20) %>%
+  select(Court_Groups,Free_Throw_pct) %>%
+  filter(Court_Groups == "Front_Court") 
+Front_court <- Front_C$Free_Throw_pct
+
+
+t.test(Back_court, Front_court, alternative = "greater")
+```  
+
+#### Conclusion:  
+**We reject H0** with a confidence level of 95% and determine that there is a significant difference in free-throw percentage of the groups, as we could see that in both tests the "back-court" group has been superior in terms of free-throw shooting. as we suspected the "back-court" players are shooting better from the free-throw line.  
+
+[Back to Table of Contents](#Table_of_Contents)  
+
+#### <a name = "T6"> </a> Test 6     
+## Linear Regression
+We wanted to predict a players ranking through his contribution on the court.  
+In order to measure a players contribution, we selected multiple statistical categories of who we believed to be the most effective elements of a player's contribution. 
+After choosing those categories, The problem was that the personal statistics that eventually will be calculated in our calculation, are from the end of the season, while the player ranking is the ranking that was given to him at the start of the season. With predicting a players ranking through our chosen categories, we needed the updated ranking from the end of the season (the nba2k ranking is being updated every month in the season). So we found new data that contained the NBA rankings from the end of the season and added it to our own data set. 
+
+```{r}
+stat_linear <- nba_mod %>%
+  ungroup() %>%
+  select(Player ,Ratings_2021, G, MP, PTS, DRB, ORB, AST, STL, BLK, FGA, FTA, TOV, PF) %>%
+  filter(G>20)
+
+stat_linear_lm <- lm(formula = Ratings_2021 ~ PTS + ORB + DRB + AST + STL + BLK + FGA + FTA + TOV + PF, data = stat_linear)
+summary(stat_linear_lm)
+```  
+According to the summary, we can see that the features of **"ORB"** and **"FTA"** are not significant for explaining or predicting a player's rating and are having a low influence on the rating.  
+In order to verify it, we will conduct a **StepWise Selection**, that hopefully will explain to us what features have a high influence on a player's rating and to get the best subset of features, and which are not.  
+```{r}
+step(stat_linear_lm, direction = "both")
+```  
+After the **StepWise Selection**, we can see that those are the features that are influencing the ranking feature:  
+**"PTS"** , **"DRB"** , ***"AST"** ,**"STL"** ,**"BLK"** ,**"FGA"** ,**"TOV"** ,**"PF"**.  
+We can also confirm our suspicion that **"ORB"** and **"FTA"** are not necessary for our prediction.  
+Due to the above reasons, our summary will look like this:  
+```{r}
+stat_linear_lm <- lm(formula = Ratings_2021 ~ PTS + DRB + AST + STL + BLK + FGA + TOV + PF, data = stat_linear)
+summary(stat_linear_lm)
+```  
+We can conclude that there is a strong linear bound between the dependent variable and the explanatory variables.  
+This strong bound is well reflected in the **$R^{2}$-Adjusted = 0.9204**.  
+In order to visualize the Linear Regression, we will plot by **stat_smooth(method = "lm")**, and also **qq_plot()**:  
+```{r}
+ggplot(stat_linear, aes(x = PTS + DRB + AST + STL + BLK + FGA + TOV + PF, y = Ratings_2021)) + 
+  geom_point(aes(colour = PTS + DRB + AST + STL + BLK + FGA + TOV + PF)) + labs(col="Statistics") +
+  theme_bw() +
+  stat_smooth(method = "lm", colour="black", size=1) +
+  labs(x = "Rating Calculation", y   = "Player Rating f 2020/2021 Season")+
+  ggtitle("Linear Regression Model of Ratings") +
+  theme(plot.title = element_text(hjust = 0.5))
+```  
+
+The residuals plot is looks homoscedastic.  
+```{r}
+qq_plot <- stat_linear_lm %>% ggplot(aes(sample=.resid)) + 
+            geom_qq() + geom_qq_line(col="red") + 
+            labs(title="QQ Plot") + 
+            theme(plot.title = element_text(hjust = 0.5))
+qq_plot
+```  
+
+
+For a conclusion, we made a table with the predicted rating from our linear regression model, and the real rating of the same player. The table is of the top 10 ranking players in the NBA.  
+For example, the Linear model predicted a rating of 95.4 for Giannis antetokounmpo, while his real rating is 97.  We can see that some predicted rankings has bigger error than others, and we can explain that by that the method of NBA2K game of choosing a rating for a player is not relying on season statistics only, but on other statistics that are not in our data such as physical statistics, historical statistics and more.  
+```{r}
+stat_linear %>% mutate(predicted = predict(stat_linear_lm)) %>% select(Player,predicted, Ratings_2021) %>% arrange(desc(Ratings_2021)) %>% head(10)
+```  
+[Back to Table of Contents](#Table_of_Contents)  
+
+# <a name = "SC"> </a> Summary & Conclusions  
+At the beginning of the project, we reviewed and evaluated the data.  
+After a comprehensive understanding of the features we have, and what each one presents, we presented by using different plots, like scatter, jitter, and also bar plot, our insights, and conclusions about different cuts in the data.  
+We have seen for example who is the most profitable player, the age distribution in the NBA, and also how much each player justifies his rating by various explanatory factors in the data.
+We performed various hypothesis tests, such as testing mean age hypotheses for age ranges, performed "Goodness Of Fit" test on personal fouls to see if there was a normal distribution or not, and also we wanted to understand if there was meaning in the shots for different player positions.
+Finally, we performed a multiple linear regression test, and through it, we wanted to understand the relationship between the rating set for each player using different explanatory features, which we chose after a deep review of the game statistics. To understand better the game, We wanted to evaluate how each rating of each player at the beginning of a season was determined based on statistics set by one year earlier. So we used two different data sets, combined specific features we wanted, and created new and interesting content that was used by us for linear regression. Finally, we found that there is a significant linear relationship, and we showed that by using two different plots. We determined that the regression maintains a homoscedastic, and finally, through a table of predictions, we saw what the rating was set for each player and how much was actually observed.  
+[Back to Table of Contents](#Table_of_Contents)  
+<img src=https://upload.wikimedia.org/wikipedia/he/thumb/0/07/NBALogo.svg/1200px-NBALogo.svg.png>  
+[Back to Table of Contents](#Table_of_Contents)  
